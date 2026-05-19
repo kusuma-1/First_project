@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0f0f0f;
+    --surface:   #1a1a1a;
+    --panel:     #222222;
+    --border:    #2e2e2e;
+    --accent:    #f0c040;
+    --accent2:   #e07820;
+    --text:      #f5f5f5;
+    --muted:     #888;
+    --op-bg:     #2a2218;
+    --eq-bg:     #f0c040;
+    --eq-text:   #0f0f0f;
+    --btn-hover: #2c2c2c;
+    --shadow:    0 32px 64px rgba(0,0,0,0.6);
+    --radius:    18px;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(240,192,64,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(224,120,32,0.05) 0%, transparent 50%);
+  }
+
+  .calc-wrapper {
+    position: relative;
+  }
+
+  /* Glow ring behind calculator */
+  .calc-wrapper::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: calc(var(--radius) + 2px);
+    background: linear-gradient(135deg, var(--accent), var(--accent2), transparent, transparent);
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  .calculator {
+    position: relative;
+    z-index: 1;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    width: 340px;
+    overflow: hidden;
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(30px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0)   scale(1); }
+  }
+
+  /* ── Display ────────────────────────────── */
+  .display {
+    background: var(--panel);
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: flex-end;
+    gap: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .display::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0.4;
+  }
+
+  .display-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    text-transform: uppercase;
+    position: absolute;
+    top: 16px;
+    left: 24px;
+    opacity: 0.7;
+  }
+
+  .expression {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+    min-height: 18px;
+    transition: opacity 0.2s;
+    word-break: break-all;
+    text-align: right;
+    max-width: 100%;
+  }
+
+  .result {
+    font-family: 'Space Mono', monospace;
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    transition: all 0.15s ease;
+    word-break: break-all;
+    text-align: right;
+    max-width: 100%;
+  }
+
+  .result.shrink { font-size: 28px; }
+  .result.mini   { font-size: 20px; }
+
+  .result.pop {
+    animation: pop 0.18s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  }
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+
+  /* ── Button Grid ────────────────────────── */
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .btn {
+    background: var(--surface);
+    border: none;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 18px;
+    font-weight: 400;
+    padding: 22px 10px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s, transform 0.08s;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .btn:active::after { opacity: 0.04; }
+
+  .btn:hover { background: var(--btn-hover); }
+  .btn:active { transform: scale(0.94); }
+
+  /* Operator buttons */
+  .btn.op {
+    background: var(--op-bg);
+    color: var(--accent);
+    font-size: 20px;
+  }
+  .btn.op:hover { background: #332a1a; }
+
+  /* Clear / utility */
+  .btn.util {
+    color: var(--accent2);
+    font-size: 14px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Equals */
+  .btn.eq {
+    background: var(--eq-bg);
+    color: var(--eq-text);
+    font-weight: 700;
+    font-size: 22px;
+  }
+  .btn.eq:hover { background: #e8b830; }
+  .btn.eq:active { transform: scale(0.92); }
+
+  /* Zero spans 2 columns */
+  .btn.zero { grid-column: span 2; text-align: left; padding-left: 28px; }
+
+  /* Ripple */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    transform: scale(0);
+    background: rgba(255,255,255,0.12);
+    pointer-events: none;
+    animation: rippleAnim 0.4s linear;
+  }
+  @keyframes rippleAnim {
+    to { transform: scale(4); opacity: 0; }
+  }
+
+  /* ── Footer ─────────────────────────────── */
+  .footer {
+    background: var(--panel);
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .history-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 4px 0;
+    transition: color 0.2s;
+  }
+  .history-btn:hover { color: var(--accent); }
+
+  .mode-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.6;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.3; }
+    50%       { opacity: 0.8; }
+  }
+
+  /* ── History Panel ──────────────────────── */
+  .history-panel {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: #141414;
+    border-top: 1px solid var(--border);
+    max-height: 220px;
+    overflow-y: auto;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 10;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+  .history-panel.open { transform: translateY(0); }
+
+  .history-header {
+    padding: 14px 20px 8px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-family: 'Space Mono', monospace;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: #141414;
+  }
+
+  .clear-hist {
+    background: none;
+    border: none;
+    color: var(--accent2);
+    font-size: 10px;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .clear-hist:hover { color: var(--accent); }
+
+  .history-item {
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .history-item:hover { background: #1e1e1e; }
+  .history-item:last-child { border-bottom: none; }
+
+  .hist-expr { font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
+  .hist-result { font-size: 18px; color: var(--text); font-family: 'Space Mono', monospace; font-weight: 700; }
+
+  .no-history {
+    padding: 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  /* Error shake */
+  .shake {
+    animation: shake 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+  }
+  @keyframes shake {
+    10%, 90%  { transform: translateX(-2px); }
+    20%, 80%  { transform: translateX(4px); }
+    30%, 50%, 70% { transform: translateX(-6px); }
+    40%, 60%  { transform: translateX(6px); }
+  }
+</style>
+</head>
+<body>
+
+<div class="calc-wrapper">
+  <div class="calculator" id="calc">
+
+    <!-- Display -->
+    <div class="display">
+      <span class="display-label">CALC</span>
+      <div class="expression" id="expression"></div>
+      <div class="result" id="result">0</div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="buttons">
+      <!-- Row 1 -->
+      <button class="btn util" data-action="clear">AC</button>
+      <button class="btn util" data-action="toggle-sign">+/−</button>
+      <button class="btn util" data-action="percent">%</button>
+      <button class="btn op"   data-action="operator" data-value="÷">÷</button>
+      <!-- Row 2 -->
+      <button class="btn" data-action="digit" data-value="7">7</button>
+      <button class="btn" data-action="digit" data-value="8">8</button>
+      <button class="btn" data-action="digit" data-value="9">9</button>
+      <button class="btn op" data-action="operator" data-value="×">×</button>
+      <!-- Row 3 -->
+      <button class="btn" data-action="digit" data-value="4">4</button>
+      <button class="btn" data-action="digit" data-value="5">5</button>
+      <button class="btn" data-action="digit" data-value="6">6</button>
+      <button class="btn op" data-action="operator" data-value="−">−</button>
+      <!-- Row 4 -->
+      <button class="btn" data-action="digit" data-value="1">1</button>
+      <button class="btn" data-action="digit" data-value="2">2</button>
+      <button class="btn" data-action="digit" data-value="3">3</button>
+      <button class="btn op" data-action="operator" data-value="+">+</button>
+      <!-- Row 5 -->
+      <button class="btn zero" data-action="digit" data-value="0">0</button>
+      <button class="btn" data-action="decimal">.</button>
+      <button class="btn eq" data-action="equals">=</button>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <button class="history-btn" id="historyToggle">History</button>
+      <div class="mode-dot"></div>
+    </div>
+
+    <!-- History panel -->
+    <div class="history-panel" id="historyPanel">
+      <div class="history-header">
+        <span>Recent</span>
+        <button class="clear-hist" id="clearHistory">Clear</button>
+      </div>
+      <div id="historyList"><div class="no-history">No calculations yet</div></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  const state = {
+    current:     '0',
+    previous:    '',
+    operator:    null,
+    waitingNext: false,
+    history:     [],
+  };
+
+  // ── DOM refs ───────────────────────────────────────────────────────────────
+  const resultEl    = document.getElementById('result');
+  const exprEl      = document.getElementById('expression');
+  const histPanel   = document.getElementById('historyPanel');
+  const histList    = document.getElementById('historyList');
+  const histToggle  = document.getElementById('historyToggle');
+  const clearHistBtn= document.getElementById('clearHistory');
+
+  // ── Display helpers ────────────────────────────────────────────────────────
+  function updateDisplay(value, expr = '') {
+    resultEl.classList.remove('pop');
+    void resultEl.offsetWidth; // reflow
+    resultEl.classList.add('pop');
+
+    resultEl.textContent = formatNumber(value);
+    exprEl.textContent   = expr;
+
+    const len = String(value).length;
+    resultEl.classList.toggle('shrink', len > 10);
+    resultEl.classList.toggle('mini',   len > 15);
+  }
+
+  function formatNumber(val) {
+    if (val === 'Error') return 'Error';
+    const num = parseFloat(val);
+    if (isNaN(num)) return val;
+    // Avoid scientific notation for large numbers where possible
+    if (Math.abs(num) < 1e15 && Math.abs(num) > 1e-7 || num === 0) {
+      let str = parseFloat(num.toPrecision(12)).toString();
+      return str;
+    }
+    return num.toExponential(6);
+  }
+
+  // ── Calculation ────────────────────────────────────────────────────────────
+  function calculate(a, op, b) {
+    const x = parseFloat(a), y = parseFloat(b);
+    switch (op) {
+      case '+': return x + y;
+      case '−': return x - y;
+      case '×': return x * y;
+      case '÷': return y === 0 ? 'Error' : x / y;
+    }
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  function handleDigit(digit) {
+    if (state.waitingNext) {
+      state.current    = digit;
+      state.waitingNext = false;
+    } else {
+      if (state.current === '0' && digit !== '.') {
+        state.current = digit;
+      } else if (state.current.length < 16) {
+        state.current += digit;
+      }
+    }
+    updateDisplay(state.current, buildExpr());
+  }
+
+  function handleOperator(op) {
+    if (state.operator && !state.waitingNext) {
+      // chain calculations
+      const result = calculate(state.previous, state.operator, state.current);
+      if (result === 'Error') { showError(); return; }
+      state.previous = String(result);
+      state.current  = String(result);
+    } else {
+      state.previous = state.current;
+    }
+    state.operator    = op;
+    state.waitingNext = true;
+    updateDisplay(state.current, `${formatNumber(state.previous)} ${op}`);
+  }
+
+  function handleEquals() {
+    if (!state.operator || state.waitingNext) return;
+
+    const expr   = `${formatNumber(state.previous)} ${state.operator} ${formatNumber(state.current)}`;
+    const result = calculate(state.previous, state.operator, state.current);
+
+    if (result === 'Error') { showError(); return; }
+
+    const resultStr = String(parseFloat(result.toPrecision(12)));
+
+    addHistory(expr, resultStr);
+
+    state.current    = resultStr;
+    state.previous   = '';
+    state.operator   = null;
+    state.waitingNext = false;
+
+    updateDisplay(resultStr, `${expr} =`);
+  }
+
+  function handleClear() {
+    state.current    = '0';
+    state.previous   = '';
+    state.operator   = null;
+    state.waitingNext = false;
+    updateDisplay('0', '');
+  }
+
+  function handleToggleSign() {
+    if (state.current === '0') return;
+    state.current = String(parseFloat(state.current) * -1);
+    updateDisplay(state.current, buildExpr());
+  }
+
+  function handlePercent() {
+    const val = parseFloat(state.current);
+    if (state.previous && state.operator) {
+      state.current = String((parseFloat(state.previous) * val) / 100);
+    } else {
+      state.current = String(val / 100);
+    }
+    updateDisplay(state.current, buildExpr());
+  }
+
+  function handleDecimal() {
+    if (state.waitingNext) {
+      state.current    = '0.';
+      state.waitingNext = false;
+    } else if (!state.current.includes('.')) {
+      state.current += '.';
+    }
+    updateDisplay(state.current, buildExpr());
+  }
+
+  function buildExpr() {
+    if (state.operator) return `${formatNumber(state.previous)} ${state.operator}`;
+    return '';
+  }
+
+  function showError() {
+    resultEl.textContent = 'Error';
+    resultEl.classList.add('shake');
+    setTimeout(() => {
+      resultEl.classList.remove('shake');
+      handleClear();
+    }, 600);
+  }
+
+  // ── History ────────────────────────────────────────────────────────────────
+  function addHistory(expr, result) {
+    state.history.unshift({ expr, result });
+    if (state.history.length > 20) state.history.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    if (state.history.length === 0) {
+      histList.innerHTML = '<div class="no-history">No calculations yet</div>';
+      return;
+    }
+    histList.innerHTML = state.history.map((h, i) => `
+      <div class="history-item" data-index="${i}">
+        <div class="hist-expr">${h.expr}</div>
+        <div class="hist-result">${h.result}</div>
+      </div>
+    `).join('');
+
+    histList.querySelectorAll('.history-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.index);
+        state.current = state.history[idx].result;
+        state.waitingNext = false;
+        updateDisplay(state.current, '');
+        toggleHistory(false);
+      });
+    });
+  }
+
+  function toggleHistory(force) {
+    const open = force !== undefined ? force : !histPanel.classList.contains('open');
+    histPanel.classList.toggle('open', open);
+    histToggle.style.color = open ? 'var(--accent)' : '';
+  }
+
+  histToggle.addEventListener('click', () => toggleHistory());
+  clearHistBtn.addEventListener('click', () => {
+    state.history = [];
+    renderHistory();
+  });
+
+  // ── Ripple effect ──────────────────────────────────────────────────────────
+  function createRipple(btn, e) {
+    const rect   = btn.getBoundingClientRect();
+    const size   = Math.max(rect.width, rect.height);
+    const x = e.clientX - rect.left - size / 2;
+    const y = e.clientY - rect.top  - size / 2;
+    const rip    = document.createElement('span');
+    rip.className = 'ripple';
+    rip.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px`;
+    btn.appendChild(rip);
+    setTimeout(() => rip.remove(), 400);
+  }
+
+  // ── Event delegation ───────────────────────────────────────────────────────
+  document.querySelector('.buttons').addEventListener('click', e => {
+    const btn = e.target.closest('.btn');
+    if (!btn) return;
+
+    createRipple(btn, e);
+
+    const { action, value } = btn.dataset;
+    switch (action) {
+      case 'digit':       handleDigit(value);     break;
+      case 'operator':    handleOperator(value);  break;
+      case 'equals':      handleEquals();         break;
+      case 'clear':       handleClear();          break;
+      case 'toggle-sign': handleToggleSign();     break;
+      case 'percent':     handlePercent();        break;
+      case 'decimal':     handleDecimal();        break;
+    }
+  });
+
+  // ── Keyboard support ───────────────────────────────────────────────────────
+  const keyMap = {
+    '0':'0','1':'1','2':'2','3':'3','4':'4',
+    '5':'5','6':'6','7':'7','8':'8','9':'9',
+    '+':'+','-':'−','*':'×','/':'÷',
+    'Enter':'=','=':'=','.':'.','%':'%',
+    'Backspace':'backspace','Escape':'clear',
+  };
+
+  document.addEventListener('keydown', e => {
+    const mapped = keyMap[e.key];
+    if (!mapped) return;
+    e.preventDefault();
+
+    if ('0123456789'.includes(mapped)) handleDigit(mapped);
+    else if (['+','−','×','÷'].includes(mapped)) handleOperator(mapped);
+    else if (mapped === '=') handleEquals();
+    else if (mapped === '.') handleDecimal();
+    else if (mapped === '%') handlePercent();
+    else if (mapped === 'clear') handleClear();
+    else if (mapped === 'backspace') {
+      if (state.current.length > 1 && state.current !== 'Error') {
+        state.current = state.current.slice(0, -1) || '0';
+      } else {
+        state.current = '0';
+      }
+      updateDisplay(state.current, buildExpr());
+    }
+  });
+
+  // Init
+  updateDisplay('0');
+</script>
+</body>
+</html>
